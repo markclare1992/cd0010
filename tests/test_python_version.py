@@ -27,8 +27,9 @@ class TestPythonVersion(unittest.TestCase):
     """Check that the Python version is >= 3.6."""
 
     def test_python_version_is_at_least_3_6(self):
-        self.assertTrue(sys.version_info >= (3, 6),
-                        msg="""Unsupported Python version.
+        self.assertTrue(
+            sys.version_info >= (3, 6),
+            msg="""Unsupported Python version.
 
     It looks like you're using a version of Python that's too old.
     This project requires Python 3.6+. You're currently using Python {}.{}.{}.
@@ -42,8 +43,11 @@ class TestPythonVersion(unittest.TestCase):
         $ python3 -V
         Python 3.X.Y
 
-    """.format(*sys.version_info[:3]))
+    """.format(
+                *sys.version_info[:3]
+            ),
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

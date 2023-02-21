@@ -50,5 +50,5 @@ class TestLimit(unittest.TestCase):
         self.assertIsInstance(limit(self.iterable, None), collections.abc.Iterable)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

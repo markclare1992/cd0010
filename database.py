@@ -8,9 +8,11 @@ user-specified criteria.
 Under normal circumstances, the main module creates one NEODatabase from the
 data on NEOs and close approaches extracted by `extract.load_neos` and
 `extract.load_approaches`.
-
-You'll edit this file in Tasks 2 and 3.
 """
+from collections import defaultdict
+from typing import Generator, List, Optional
+
+from models import CloseApproach, NearEarthObject
 
 
 class NEODatabase:
@@ -21,7 +23,8 @@ class NEODatabase:
     help fetch NEOs by primary designation or by name and to help speed up
     querying for close approaches that match criteria.
     """
-    def __init__(self, neos, approaches):
+
+    def __init__(self, neos: List[NearEarthObject], approaches: List[CloseApproach]):
         """Create a new `NEODatabase`.
 
         As a precondition, this constructor assumes that the collections of NEOs
@@ -41,12 +44,26 @@ class NEODatabase:
         """
         self._neos = neos
         self._approaches = approaches
+        self._date_to_approaches = defaultdict(list)
 
-        # TODO: What additional auxiliary data structures will be useful?
+        for approach in self._approaches:
+            approach.neo = self.get_neo_by_designation(approach.designation)
+            if approach.neo is None:
+                raise ValueError("No NEO found for this approach.")
+            else:
+                approach.neo.approaches.append(approach)
+                self._date_to_approaches[approach.time.date()].append(approach)
 
-        # TODO: Link together the NEOs and their close approaches.
+    def __post__init__(self):
+        self.approaches_distance_sorted = sorted(
+            self._approaches, key=lambda x: x.distance
+        )
+        self.approaches_velocity_sorted = sorted(
+            self._approaches, key=lambda x: x.velocity
+        )
+        self.neos_diameter_sorted = sorted(self._neos, key=lambda x: x.diameter)
 
-    def get_neo_by_designation(self, designation):
+    def get_neo_by_designation(self, designation: str) -> Optional[NearEarthObject]:
         """Find and return an NEO by its primary designation.
 
         If no match is found, return `None` instead.
@@ -59,10 +76,13 @@ class NEODatabase:
         :param designation: The primary designation of the NEO to search for.
         :return: The `NearEarthObject` with the desired primary designation, or `None`.
         """
-        # TODO: Fetch an NEO by its primary designation.
-        return None
+        temp_return = next(
+            (x for x in self._neos if x.designation.lower() == designation.lower()),
+            None,
+        )
+        return temp_return
 
-    def get_neo_by_name(self, name):
+    def get_neo_by_name(self, name: str) -> Optional[NearEarthObject]:
         """Find and return an NEO by its name.
 
         If no match is found, return `None` instead.
@@ -76,10 +96,19 @@ class NEODatabase:
         :param name: The name, as a string, of the NEO to search for.
         :return: The `NearEarthObject` with the desired name, or `None`.
         """
-        # TODO: Fetch an NEO by its name.
-        return None
+        if name is None or name == "":
+            return None
+        temp_var = next(
+            (
+                x
+                for x in self._neos
+                if x.name is not None and x.name.lower() == name.lower()
+            ),
+            None,
+        )
+        return temp_var
 
-    def query(self, filters=()):
+    def query(self, filters=()) -> Generator:
         """Query close approaches to generate those that match a collection of filters.
 
         This generates a stream of `CloseApproach` objects that match all of the
@@ -93,6 +122,15 @@ class NEODatabase:
         :param filters: A collection of filters capturing user-specified criteria.
         :return: A stream of matching `CloseApproach` objects.
         """
-        # TODO: Generate `CloseApproach` objects that match all of the filters.
+        # for approach in self._approaches:
+        #     passes = True
+        #     for filter in filters:
+        #         if not filter(approach):
+        #             passes = False
+        #             break
+        #     if passes:
+        #         yield approach
+
         for approach in self._approaches:
-            yield approach
+            if all(f(approach) for f in filters):
+                yield approach

@@ -13,10 +13,13 @@ the supplied `CloseApproach`.
 
 The `limit` function simply limits the maximum number of values produced by an
 iterator.
-
-You'll edit this file in Tasks 3a and 3c.
 """
+import itertools
 import operator
+from datetime import date
+from typing import Any, Generator, List, Optional, Type
+
+from models import CloseApproach
 
 
 class UnsupportedCriterionError(NotImplementedError):
@@ -38,7 +41,8 @@ class AttributeFilter:
     Concrete subclasses can override the `get` classmethod to provide custom
     behavior to fetch a desired attribute from the given `CloseApproach`.
     """
-    def __init__(self, op, value):
+
+    def __init__(self, op, value) -> None:
         """Construct a new `AttributeFilter` from an binary predicate and a reference value.
 
         The reference value will be supplied as the second (right-hand side)
@@ -52,7 +56,7 @@ class AttributeFilter:
         self.op = op
         self.value = value
 
-    def __call__(self, approach):
+    def __call__(self, approach: CloseApproach) -> bool:
         """Invoke `self(approach)`."""
         return self.op(self.get(approach), self.value)
 
@@ -68,17 +72,87 @@ class AttributeFilter:
         """
         raise UnsupportedCriterionError
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}(op=operator.{self.op.__name__}, value={self.value})"
 
 
+class DateFilter(AttributeFilter):
+    """A filter that selects close approaches that occur on a given date."""
+
+    @classmethod
+    def get(cls, approach: CloseApproach) -> date:
+        """Get the date of a close approach.
+
+        :param approach: A `CloseApproach` on which to evaluate this filter.
+        :return: The date of the approach.
+        """
+        return approach.time.date()
+
+
+class DistanceFilter(AttributeFilter):
+    """A filter for close approaches that are within a given distance range."""
+
+    @classmethod
+    def get(cls, approach: CloseApproach) -> float:
+        """Get the nominal approach distance of a close approach.
+
+        :param approach: A `CloseApproach` on which to evaluate this filter.
+        :return: The nominal approach distance of `approach`.
+        """
+        return approach.distance
+
+
+class VelocityFilter(AttributeFilter):
+    """A filter for close approaches that are within a given velocity range."""
+
+    @classmethod
+    def get(cls, approach: CloseApproach) -> float:
+        """Get the relative approach velocity of a close approach.
+
+        :param approach: A `CloseApproach` on which to evaluate this filter.
+        :return: The relative approach velocity of `approach`.
+        """
+        return approach.velocity
+
+
+class DiameterFilter(AttributeFilter):
+    """A filter for close approaches that are within a given diameter range."""
+
+    @classmethod
+    def get(cls, approach: CloseApproach) -> Optional[float]:
+        """Get the diameter of a close approach.
+
+        :param approach: A `CloseApproach` on which to evaluate this filter.
+        :return: The diameter of `approach`.
+        """
+        return approach.neo.diameter
+
+
+class HazardousFilter(AttributeFilter):
+    """A filter for close approaches that have given hazardous status."""
+
+    @classmethod
+    def get(cls, approach: CloseApproach) -> Optional[bool]:
+        """Get the hazardous status of a close approach.
+
+        :param approach: A `CloseApproach` on which to evaluate this filter.
+        :return: The hazardous status of `approach`.  True if hazardous, False otherwise.
+        """
+        return approach.neo.hazardous
+
+
 def create_filters(
-        date=None, start_date=None, end_date=None,
-        distance_min=None, distance_max=None,
-        velocity_min=None, velocity_max=None,
-        diameter_min=None, diameter_max=None,
-        hazardous=None
-):
+    date=None,
+    start_date=None,
+    end_date=None,
+    distance_min=None,
+    distance_max=None,
+    velocity_min=None,
+    velocity_max=None,
+    diameter_min=None,
+    diameter_max=None,
+    hazardous=None,
+) -> List[Any]:
     """Create a collection of filters from user-specified criteria.
 
     Each of these arguments is provided by the main module with a value from the
@@ -108,11 +182,31 @@ def create_filters(
     :param hazardous: Whether the NEO of a matching `CloseApproach` is potentially hazardous.
     :return: A collection of filters for use with `query`.
     """
-    # TODO: Decide how you will represent your filters.
-    return ()
+    amalgamated_filters = []
+    if date is not None:
+        amalgamated_filters.append(DateFilter(operator.eq, date))
+    if start_date is not None:
+        amalgamated_filters.append(DateFilter(operator.ge, start_date))
+    if end_date is not None:
+        amalgamated_filters.append(DateFilter(operator.le, end_date))
+    if distance_min is not None:
+        amalgamated_filters.append(DistanceFilter(operator.ge, distance_min))
+    if distance_max is not None:
+        amalgamated_filters.append(DistanceFilter(operator.le, distance_max))
+    if velocity_min is not None:
+        amalgamated_filters.append(VelocityFilter(operator.ge, velocity_min))
+    if velocity_max is not None:
+        amalgamated_filters.append(VelocityFilter(operator.le, velocity_max))
+    if diameter_min is not None:
+        amalgamated_filters.append(DiameterFilter(operator.ge, diameter_min))
+    if diameter_max is not None:
+        amalgamated_filters.append(DiameterFilter(operator.le, diameter_max))
+    if hazardous is not None:
+        amalgamated_filters.append(HazardousFilter(operator.eq, hazardous))
+    return amalgamated_filters
 
 
-def limit(iterator, n=None):
+def limit(iterator: Generator, n: Optional[int] = None):
     """Produce a limited stream of values from an iterator.
 
     If `n` is 0 or None, don't limit the iterator at all.
@@ -121,5 +215,7 @@ def limit(iterator, n=None):
     :param n: The maximum number of values to produce.
     :yield: The first (at most) `n` values from the iterator.
     """
-    # TODO: Produce at most `n` values from the given iterator.
-    return iterator
+    if n is None or n == 0:
+        return iterator
+    else:
+        return itertools.islice(iterator, n)
